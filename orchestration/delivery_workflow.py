@@ -188,7 +188,26 @@ async def run_delivery_workflow(
                 "Azure DevOps"
             )
 
+        # Execute the tool normally.
         await call_next()
+
+        # Azure DevOps MCP tools are single-use within one agent run.
+        #
+        # This preserves MCP/autonomous tool selection, but prevents the
+        # function-invocation loop from requesting the exact same live
+        # Azure DevOps operation repeatedly after it already returned.
+        #
+        # FunctionInvocationContext.remove_tools(...) updates the live tool
+        # list for the NEXT model/tool iteration.
+        if is_azure_devops_tool:
+            context.remove_tools(
+                [tool_name]
+            )
+
+            print(
+                "[ToolControl] Removed single-use "
+                f"Azure DevOps tool: {tool_name}"
+            )
 
 
     # -----------------------------------------------------
