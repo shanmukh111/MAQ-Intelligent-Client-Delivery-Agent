@@ -1,0 +1,12 @@
+timesheet_id,project_id,project_name,employee,role,week_start,planned_hours,actual_hours,billable_hours,approval_status,utilization_percent
+TS-001,PBI-001,Executive Sales Analytics,Consultant A,Power BI Developer,2026-08-10,40,38,36,Approved,95
+TS-002,PBI-001,Executive Sales Analytics,Consultant B,Data Engineer,2026-08-10,40,42,40,Approved,105
+TS-003,PBI-002,Finance Reporting Modernization,Consultant C,Power BI Developer,2026-08-10,40,46,44,Approved,115
+TS-004,PBI-002,Finance Reporting Modernization,Consultant D,Integration Engineer,2026-08-10,40,48,46,Pending,120
+TS-005,PBI-003,Operations KPI Dashboard,Consultant E,Power BI Developer,2026-08-10,40,34,32,Approved,85
+TS-006,PBI-003,Operations KPI Dashboard,Consultant F,Data Analyst,2026-08-10,40,36,34,Approved,90
+TS-007,PBI-004,Customer Insights Platform,Consultant G,Power BI Developer,2026-08-10,40,50,48,Approved,125
+TS-008,PBI-004,Customer Insights Platform,Consultant H,Data Engineer,2026-08-10,40,52,50,Pending,130
+TS-009,AZ-001,Cloud Migration Wave 2,Consultant I,Cloud Engineer,2026-08-10,40,39,38,Approved,97.5
+TS-010,D365-001,Project Operations Rollout,Consultant J,D365 Consultant,2026-08-10,40,45,42,Pending,112.5
+TS-011,D365-001,Project Operations Rollout,Consultant K,Functional Consultant,2026-08-10,40,43,40,Approved,107.5

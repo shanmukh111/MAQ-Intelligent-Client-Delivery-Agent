@@ -1,0 +1,8 @@
+project_id,project_name,client,technology,project_manager,status,planned_start,planned_end,percent_complete,budget_status,schedule_status,risk_summary,next_milestone,last_updated
+PBI-001,Executive Sales Analytics,Contoso Retail,Power BI,Manager A,Active,2026-06-01,2026-09-15,72,On Track,On Track,Minor data quality issues,UAT Completion,2026-08-17
+PBI-002,Finance Reporting Modernization,Fabrikam Finance,Power BI,Manager B,Active,2026-05-15,2026-08-31,58,On Track,At Risk,ERP integration dependency,Production Deployment,2026-08-17
+PBI-003,Operations KPI Dashboard,Northwind Logistics,Power BI,Manager A,Active,2026-07-01,2026-10-15,35,On Track,On Track,No major risks,Data Validation Complete,2026-08-17
+PBI-004,Customer Insights Platform,Adventure Works,Power BI,Manager C,Active,2026-04-10,2026-08-25,61,At Risk,Behind,Source system delays and unresolved requirements,UAT Signoff,2026-08-17
+AZ-001,Cloud Migration Wave 2,Contoso Retail,Azure,Manager D,Active,2026-03-01,2026-11-30,48,On Track,On Track,Resource availability,Migration Wave 2 Complete,2026-08-17
+D365-001,Project Operations Rollout,Fabrikam Finance,D365,Manager B,Active,2026-02-01,2026-12-15,44,At Risk,At Risk,Timesheet adoption below target,Phase 2 Go-Live,2026-08-17
+PBI-005,Legacy BI Decommission,Northwind Logistics,Power BI,Manager C,Completed,2026-01-10,2026-07-31,100,On Track,Complete,None,Project Closed,2026-08-01

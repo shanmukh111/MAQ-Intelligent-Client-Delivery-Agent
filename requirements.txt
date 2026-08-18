@@ -1,0 +1,10 @@
+autogen-agentchat
+autogen-ext
+fastapi
+uvicorn
+python-dotenv
+httpx
+pydantic
+fastmcp
+agent-framework
+msal

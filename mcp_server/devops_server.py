@@ -1,0 +1,454 @@
+import os
+from base64 import b64encode
+from datetime import datetime, timezone
+import httpx
+from dotenv import load_dotenv
+from fastmcp import FastMCP
+
+load_dotenv()
+
+AZDO_ORG = os.getenv("AZDO_ORG")
+AZDO_PROJECT = os.getenv("AZDO_PROJECT")
+AZDO_PAT = os.getenv("AZDO_PAT")
+
+mcp = FastMCP(name="MAQ Azure DevOps MCP Server")
+
+def get_auth_header() -> dict:
+    token = b64encode(f":{AZDO_PAT}".encode()).decode()
+    return {
+        "Authorization": f"Basic {token}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+
+
+@mcp.tool
+def get_project_info() -> dict:
+    """Returns basic information about the configured Azure DevOps project."""
+
+    url = (
+        f"https://dev.azure.com/{AZDO_ORG}/"
+        f"_apis/projects/{AZDO_PROJECT}?api-version=7.1"
+    )
+
+    try:
+        response = httpx.get(
+            url,
+            headers=get_auth_header(),
+            timeout=20.0,
+        )
+
+        response.raise_for_status()
+        data = response.json()
+
+        return {
+            "success": True,
+            "id": data.get("id"),
+            "name": data.get("name"),
+            "description": data.get("description"),
+            "state": data.get("state"),
+            "visibility": data.get("visibility"),
+        }
+
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": str(exc),
+        }
+
+
+@mcp.tool
+def get_active_work_items() -> dict:
+    """Returns active Azure DevOps work items for the configured project."""
+
+    wiql_url = (
+        f"https://dev.azure.com/{AZDO_ORG}/{AZDO_PROJECT}/"
+        f"_apis/wit/wiql?api-version=7.1"
+    )
+
+    wiql_query = {
+        "query": """
+        SELECT
+            [System.Id],
+            [System.Title],
+            [System.WorkItemType],
+            [System.State],
+            [System.AssignedTo]
+        FROM WorkItems
+        WHERE
+            [System.TeamProject] = @project
+            AND [System.State] <> 'Closed'
+            AND [System.State] <> 'Removed'
+        ORDER BY [System.ChangedDate] DESC
+        """
+    }
+
+    try:
+        wiql_response = httpx.post(
+            wiql_url,
+            headers=get_auth_header(),
+            json=wiql_query,
+            timeout=20.0,
+        )
+
+        wiql_response.raise_for_status()
+
+        work_items = wiql_response.json().get("workItems", [])
+
+        if not work_items:
+            return {
+                "success": True,
+                "count": 0,
+                "items": [],
+            }
+
+        ids = [str(item["id"]) for item in work_items[:50]]
+
+        details_url = (
+            f"https://dev.azure.com/{AZDO_ORG}/{AZDO_PROJECT}/"
+            f"_apis/wit/workitems"
+            f"?ids={','.join(ids)}"
+            f"&fields=System.Id,System.Title,System.WorkItemType,"
+            f"System.State,System.AssignedTo,System.IterationPath"
+            f"&api-version=7.1"
+        )
+
+        details_response = httpx.get(
+            details_url,
+            headers=get_auth_header(),
+            timeout=20.0,
+        )
+
+        details_response.raise_for_status()
+
+        results = []
+
+        for item in details_response.json().get("value", []):
+            fields = item.get("fields", {})
+
+            assigned_to = fields.get("System.AssignedTo")
+
+            if isinstance(assigned_to, dict):
+                assigned_to = assigned_to.get("displayName")
+
+            results.append(
+                {
+                    "id": fields.get("System.Id"),
+                    "title": fields.get("System.Title"),
+                    "type": fields.get("System.WorkItemType"),
+                    "state": fields.get("System.State"),
+                    "assignedTo": assigned_to,
+                    "iterationPath": fields.get("System.IterationPath"),
+                }
+            )
+
+        return {
+            "success": True,
+            "count": len(results),
+            "items": results,
+        }
+
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": "Azure DevOps returned an HTTP error",
+            "status_code": exc.response.status_code,
+            "details": exc.response.text,
+        }
+
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": "Azure DevOps request failed",
+            "details": str(exc),
+        }
+
+@mcp.tool
+def get_iterations() -> dict:
+    """Returns Azure DevOps iterations configured for the current project/team."""
+
+    url = (
+        f"https://dev.azure.com/{AZDO_ORG}/{AZDO_PROJECT}/"
+        f"_apis/work/teamsettings/iterations?api-version=7.1"
+    )
+
+    try:
+        response = httpx.get(
+            url,
+            headers=get_auth_header(),
+            timeout=20.0,
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        iterations = []
+
+        for item in data.get("value", []):
+            attributes = item.get("attributes", {})
+
+            iterations.append(
+                {
+                    "id": item.get("id"),
+                    "name": item.get("name"),
+                    "path": item.get("path"),
+                    "startDate": attributes.get("startDate"),
+                    "finishDate": attributes.get("finishDate"),
+                    "timeFrame": attributes.get("timeFrame"),
+                }
+            )
+
+        return {
+            "success": True,
+            "count": len(iterations),
+            "iterations": iterations,
+        }
+
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": "Azure DevOps returned an HTTP error",
+            "status_code": exc.response.status_code,
+            "details": exc.response.text,
+        }
+
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": "Azure DevOps request failed",
+            "details": str(exc),
+        }
+
+
+@mcp.tool
+def get_current_sprint_summary() -> dict:
+    """Returns summary and work items for the current Azure DevOps iteration."""
+
+    try:
+        iterations_url = (
+            f"https://dev.azure.com/{AZDO_ORG}/{AZDO_PROJECT}/"
+            f"_apis/work/teamsettings/iterations?$timeframe=Current&api-version=7.1"
+        )
+
+        iterations_response = httpx.get(
+            iterations_url,
+            headers=get_auth_header(),
+            timeout=20.0,
+        )
+        iterations_response.raise_for_status()
+
+        iterations = iterations_response.json().get("value", [])
+
+        if not iterations:
+            return {
+                "success": False,
+                "error": "No current iteration found."
+            }
+
+        current_iteration = iterations[0]
+        iteration_id = current_iteration.get("id")
+        attributes = current_iteration.get("attributes", {})
+
+        workitems_url = (
+            f"https://dev.azure.com/{AZDO_ORG}/{AZDO_PROJECT}/"
+            f"_apis/work/teamsettings/iterations/{iteration_id}/workitems"
+            f"?api-version=7.1"
+        )
+
+        workitems_response = httpx.get(
+            workitems_url,
+            headers=get_auth_header(),
+            timeout=20.0,
+        )
+        workitems_response.raise_for_status()
+
+        relations = workitems_response.json().get("workItemRelations", [])
+
+        work_item_ids = []
+
+        for relation in relations:
+            target = relation.get("target")
+
+            if target and target.get("id"):
+                work_item_ids.append(str(target["id"]))
+
+        work_item_ids = list(dict.fromkeys(work_item_ids))
+
+        if not work_item_ids:
+            return {
+                "success": True,
+                "iteration": {
+                    "id": iteration_id,
+                    "name": current_iteration.get("name"),
+                    "path": current_iteration.get("path"),
+                    "startDate": attributes.get("startDate"),
+                    "finishDate": attributes.get("finishDate"),
+                    "timeFrame": attributes.get("timeFrame"),
+                },
+                "totalWorkItems": 0,
+                "completedWorkItems": 0,
+                "activeWorkItems": 0,
+                "completionPercent": 0,
+                "items": [],
+            }
+
+        ids_param = ",".join(work_item_ids[:200])
+
+        details_url = (
+            f"https://dev.azure.com/{AZDO_ORG}/{AZDO_PROJECT}/"
+            f"_apis/wit/workitems"
+            f"?ids={ids_param}"
+            f"&fields=System.Id,System.Title,System.WorkItemType,"
+            f"System.State,System.AssignedTo,System.IterationPath"
+            f"&api-version=7.1"
+        )
+
+        details_response = httpx.get(
+            details_url,
+            headers=get_auth_header(),
+            timeout=20.0,
+        )
+        details_response.raise_for_status()
+
+        items = []
+        completed_count = 0
+        in_progress_count = 0
+        new_count = 0
+
+        completed_states = {
+            "Closed",
+            "Done",
+            "Resolved",
+            "Completed",
+        }
+
+        in_progress_states = {
+            "Active",
+            "In Progress",
+            "Committed",
+        }
+
+        for item in details_response.json().get("value", []):
+            fields = item.get("fields", {})
+
+            assigned_to = fields.get("System.AssignedTo")
+
+            if isinstance(assigned_to, dict):
+                assigned_to = assigned_to.get("displayName")
+
+            state = fields.get("System.State")
+
+            if state in completed_states:
+                completed_count += 1
+            elif state in in_progress_states:
+                in_progress_count += 1
+            else:
+                new_count += 1
+
+            items.append(
+                {
+                    "id": fields.get("System.Id"),
+                    "title": fields.get("System.Title"),
+                    "type": fields.get("System.WorkItemType"),
+                    "state": state,
+                    "assignedTo": assigned_to,
+                    "iterationPath": fields.get("System.IterationPath"),
+                }
+            )
+
+        total = len(items)
+        remaining = total - completed_count
+
+        completion_percent = (
+            round((completed_count / total) * 100, 2)
+            if total > 0
+            else 0
+        )
+        start_date_text = attributes.get("startDate")
+        finish_date_text = attributes.get("finishDate")
+
+        sprint_elapsed_percent = 0.0
+
+        if start_date_text and finish_date_text:
+            start_date = datetime.fromisoformat(
+                start_date_text.replace("Z", "+00:00")
+            )
+
+            finish_date = datetime.fromisoformat(
+                finish_date_text.replace("Z", "+00:00")
+            )
+
+            now = datetime.now(timezone.utc)
+
+            total_duration = (
+                finish_date - start_date
+            ).total_seconds()
+
+            elapsed_duration = (
+                now - start_date
+            ).total_seconds()
+
+            if total_duration > 0:
+                sprint_elapsed_percent = (
+                    elapsed_duration / total_duration
+                ) * 100
+
+            sprint_elapsed_percent = round(
+                max(0, min(100, sprint_elapsed_percent)),
+                2
+            )
+
+        delivery_gap = round(
+            completion_percent - sprint_elapsed_percent,
+            2
+        )
+
+        if delivery_gap >= -10:
+            health_status = "On Track"
+
+        elif delivery_gap >= -25:
+            health_status = "At Risk"
+
+        else:
+            health_status = "Behind"   
+        return {
+            "success": True,
+            "iteration": {
+                "id": iteration_id,
+                "name": current_iteration.get("name"),
+                "path": current_iteration.get("path"),
+                "startDate": attributes.get("startDate"),
+                "finishDate": attributes.get("finishDate"),
+                "timeFrame": attributes.get("timeFrame"),
+            },
+            "totalWorkItems": total,
+            "completedWorkItems": completed_count,
+            "newWorkItems": new_count,
+            "inProgressWorkItems": in_progress_count,
+            "remainingWorkItems": remaining,
+            "completionPercent": completion_percent,
+            "sprintElapsedPercent": sprint_elapsed_percent,
+            "deliveryGapPercent": delivery_gap,
+            "healthStatus": health_status,
+            "items": items,
+        }
+
+    except httpx.HTTPStatusError as exc:
+        return {
+            "success": False,
+            "error": "Azure DevOps returned an HTTP error",
+            "status_code": exc.response.status_code,
+            "details": exc.response.text,
+        }
+
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": "Azure DevOps request failed",
+            "details": str(exc),
+        }
+
+    
+if __name__ == "__main__":
+    mcp.run()
