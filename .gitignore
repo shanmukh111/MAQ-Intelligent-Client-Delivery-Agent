@@ -11,7 +11,6 @@ __pycache__/
 htmlcov/
 
 data/chroma/
-
 reports/generated/
 
 .vscode/
@@ -19,6 +18,10 @@ reports/generated/
 
 .DS_Store
 Thumbs.db
+
 *.backup.py
 *.pre_multi_agent.py
 *.before_*.py
+
+.git/
+*.zip

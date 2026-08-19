@@ -1,6 +1,11 @@
 import base64
 from security.authorization import AuthorizationError
 from security.pii_filter import anonymize_pii
+from security.prompt_guard import (
+    PromptInjectionError,
+    validate_user_prompt,
+)
+from security.output_filter import redact_secrets
 from contextlib import asynccontextmanager
 from io import BytesIO
 
@@ -346,6 +351,19 @@ async def delivery_query(
 
 
         # -------------------------------------------------
+        # Prompt-injection guard
+        # -------------------------------------------------
+
+        validate_user_prompt(
+            sanitized_question
+        )
+
+        print(
+            "[Security] Prompt guard passed."
+        )
+
+
+        # -------------------------------------------------
         # Run 3-agent orchestration
         # -------------------------------------------------
 
@@ -356,16 +374,23 @@ async def delivery_query(
 
         workflow_result = (
             await run_delivery_workflow(
-                user_id=
-                    request.user_id,
-                user_question=
-                    sanitized_question,
-                projects=
-                    projects,
-                mark_source=
-                    mark_source,
+                user_id=request.user_id,
+                user_question=sanitized_question,
+                projects=projects,
+                mark_source=mark_source,
             )
         )
+
+        safe_answer, secret_detected = redact_secrets(
+            workflow_result["answer"]
+        )
+
+        if secret_detected:
+            print(
+                "[Security] Secret-like content redacted from output."
+            )
+
+        workflow_result["answer"] = safe_answer
 
 
         # -------------------------------------------------
@@ -410,6 +435,21 @@ async def delivery_query(
                 ],
         }
 
+
+    except PromptInjectionError as exc:
+
+        print(
+            "[Security] Prompt injection blocked:",
+            str(exc),
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "The request was blocked by "
+                "the prompt security policy."
+            ),
+        )
 
     except AuthorizationError as exc:
 

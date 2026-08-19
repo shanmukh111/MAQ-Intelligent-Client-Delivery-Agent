@@ -1,10 +1,29 @@
-autogen-agentchat
-autogen-ext
+# Core API
 fastapi
 uvicorn
 python-dotenv
 httpx
 pydantic
-fastmcp
+openpyxl
+
+# Microsoft Agent Framework + MCP
 agent-framework
+fastmcp
+
+# Authentication / Microsoft integration
 msal
+
+# PII detection and anonymization
+presidio-analyzer
+presidio-anonymizer
+
+# Hybrid RAG
+chromadb
+sentence-transformers
+llama-index
+llama-index-retrievers-bm25
+llama-index-vector-stores-chroma
+llama-index-embeddings-huggingface
+
+# Testing
+pytest
