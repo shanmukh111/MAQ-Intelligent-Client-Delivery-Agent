@@ -1,0 +1,77 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  pythonVersion: '3.13'
+
+stages:
+
+- stage: Validate
+  displayName: Validate and Test
+  jobs:
+  - job: ValidateJob
+    displayName: Validate Python application
+    steps:
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(pythonVersion)'
+      displayName: Use Python $(pythonVersion)
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      displayName: Install dependencies
+
+    - script: |
+        python -m compileall agents apps connectors mcp_server orchestration retrieval security
+      displayName: Python syntax validation
+
+    - script: |
+        pytest -v
+      displayName: Run automated tests
+
+
+- stage: Dev
+  displayName: DEV
+  dependsOn: Validate
+  condition: succeeded()
+  jobs:
+  - job: DevJob
+    displayName: Promote to DEV
+    steps:
+    - script: |
+        echo "DEV validation complete"
+        echo "Commit: $(Build.SourceVersion)"
+      displayName: DEV promotion
+
+
+- stage: Test
+  displayName: TEST
+  dependsOn: Dev
+  condition: succeeded()
+  jobs:
+  - job: TestJob
+    displayName: Promote to TEST
+    steps:
+    - script: |
+        echo "TEST validation complete"
+        echo "Commit: $(Build.SourceVersion)"
+      displayName: TEST promotion
+
+
+- stage: Prod
+  displayName: PROD
+  dependsOn: Test
+  condition: succeeded()
+  jobs:
+  - job: ProdJob
+    displayName: Promote to PROD
+    steps:
+    - script: |
+        echo "PROD promotion complete"
+        echo "Commit: $(Build.SourceVersion)"
+      displayName: PROD promotion
