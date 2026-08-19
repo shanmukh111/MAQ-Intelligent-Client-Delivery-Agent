@@ -40,13 +40,21 @@ stages:
   dependsOn: Validate
   condition: succeeded()
   jobs:
-  - job: DevJob
+
+  - deployment: DeployDev
     displayName: Promote to DEV
-    steps:
-    - script: |
-        echo "DEV validation complete"
-        echo "Commit: $(Build.SourceVersion)"
-      displayName: DEV promotion
+    environment: MAQ-Delivery-Dev
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - script: |
+              echo "Promoting build to MAQ-Delivery-Dev"
+              echo "Commit: $(Build.SourceVersion)"
+              echo "Build: $(Build.BuildNumber)"
+            displayName: DEV deployment record
 
 
 - stage: Test
@@ -54,13 +62,21 @@ stages:
   dependsOn: Dev
   condition: succeeded()
   jobs:
-  - job: TestJob
+
+  - deployment: DeployTest
     displayName: Promote to TEST
-    steps:
-    - script: |
-        echo "TEST validation complete"
-        echo "Commit: $(Build.SourceVersion)"
-      displayName: TEST promotion
+    environment: MAQ-Delivery-Test
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - script: |
+              echo "Promoting build to MAQ-Delivery-Test"
+              echo "Commit: $(Build.SourceVersion)"
+              echo "Build: $(Build.BuildNumber)"
+            displayName: TEST deployment record
 
 
 - stage: Prod
@@ -68,10 +84,18 @@ stages:
   dependsOn: Test
   condition: succeeded()
   jobs:
-  - job: ProdJob
+
+  - deployment: DeployProd
     displayName: Promote to PROD
-    steps:
-    - script: |
-        echo "PROD promotion complete"
-        echo "Commit: $(Build.SourceVersion)"
-      displayName: PROD promotion
+    environment: MAQ-Delivery-Prod
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - script: |
+              echo "Promoting approved build to MAQ-Delivery-Prod"
+              echo "Commit: $(Build.SourceVersion)"
+              echo "Build: $(Build.BuildNumber)"
+            displayName: PROD deployment record
