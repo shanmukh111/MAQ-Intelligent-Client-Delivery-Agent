@@ -593,3 +593,78 @@ Pin the complete dependency set in `requirements.txt` before running the Azure D
 ## Disclaimer
 
 This repository is an implementation and capstone reference for an intelligent client-delivery workflow. Production deployment should use organization-approved identity, secret-management, monitoring, network, and governance controls.
+
+## Security and STRIDE Threat Model
+
+| STRIDE | Threat | Example | Mitigation |
+|---|---|---|---|
+| Spoofing | User impersonation | Sending another user's ID | Role-based authorization; Entra ID recommended for production |
+| Tampering | Prompt or payload manipulation | "Ignore previous instructions" | Prompt-injection guard and deterministic routing |
+| Repudiation | Lack of request traceability | User denies making a request | Correlation IDs, user logging, timestamps |
+| Information Disclosure | PII or secret leakage | Email, phone, API key in response | Presidio masking and output secret redaction |
+| Denial of Service | Excessive agent/tool calls | Repeated MCP invocation | Single-use MCP tool controls and bounded retries |
+| Elevation of Privilege | Access beyond user role | Engineering user requests portfolio data | Authorization before agent/tool execution |
+
+## Responsible AI
+
+The solution follows the following Responsible AI principles:
+
+- **Fairness:** access decisions are deterministic and role-based rather than model-driven.
+- **Reliability and Safety:** sprint health is calculated deterministically from Azure DevOps evidence and cannot be overridden by the LLM.
+- **Privacy and Security:** PII is masked before agent execution and secret-like output is redacted before returning a response.
+- **Transparency:** responses track the enterprise sources used.
+- **Accountability:** Azure DevOps ALM stages and production approval checks provide governance and traceability.
+- **Human Oversight:** agent recommendations support delivery decisions but do not replace management review.
+
+## Observability
+
+The solution includes lightweight observability to support troubleshooting, performance analysis, and auditability.
+
+Current logging captures:
+
+- request start and completion
+- routing decisions
+- authorization results
+- prompt-security decisions
+- agent execution status
+- source usage
+- MCP tool usage
+- evidence validation status
+- final workflow success/failure
+
+Recommended production enhancements:
+
+- correlation ID for every request
+- request duration measurement
+- structured JSON logging
+- centralized telemetry with Azure Application Insights
+- distributed tracing across FastAPI, agents, MCP, and external data sources
+- alerts for failures, high latency, repeated tool calls, and authorization denials
+
+### Suggested Request Trace
+
+```text
+Correlation ID
+     ↓
+FastAPI request
+     ↓
+Security checks
+     ↓
+Routing decision
+     ↓
+Portfolio / Engineering agent
+     ↓
+Enterprise data sources
+     ↓
+Analyst agent
+     ↓
+Final response
+
+
+For the presentation, you can summarize it as:
+
+> “The solution logs routing, authorization, tool usage, evidence status, and workflow completion. In production, these logs would be centralized in Azure Application Insights with correlation IDs and latency/error monitoring.”
+
+For speed, I would **not add more observability code now** unless your capstone specifically requires a working correlation ID implementation.
+
+Next we should do the **final architecture diagram**, because that will be used both in the README and the PPT.
